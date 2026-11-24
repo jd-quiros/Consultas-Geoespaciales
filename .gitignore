@@ -1,0 +1,21 @@
+# Salidas pesadas del ETL: se regeneran ejecutando el notebook.
+# datos_solr.jsonl (~220 MB) supera el límite de 100 MB por archivo de GitHub.
+etl/salida/datos_solr.jsonl
+etl/salida/datos_limpios.csv
+
+# Resultados intermedios de Spark (Parquet y CSV convertido)
+etl/intermedio/
+
+# Entorno de Python
+.venv/
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Archivos comprimidos (entrega y archivos para compartir)
+*.zip

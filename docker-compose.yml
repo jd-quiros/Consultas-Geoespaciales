@@ -1,11 +1,18 @@
+# Apache Solr 9 para la Etapa 2 del proyecto.
+# Uso: "docker compose up -d" para levantarlo y "docker compose stop" para apagarlo.
 services:
   solr:
     image: solr:9
     ports:
+      # Panel de administración y API en http://localhost:8983
       - "8983:8983"
     volumes:
+      # Volumen con los datos indexados: se conservan aunque el contenedor se elimine.
       - solr_data:/var/solr
+      # La imagen oficial no trae JTS, la librería que permite consultar con polígonos
+      # arbitrarios. Se monta en la carpeta de librerías de Solr, en modo solo lectura (ro).
       - ./solr/lib/jts-core-1.19.0.jar:/opt/solr/server/solr-webapp/webapp/WEB-INF/lib/jts-core-1.19.0.jar:ro
+    # Crea el core "crimen" al iniciar, si no existe.
     command: solr-precreate crimen
 
 volumes:
