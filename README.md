@@ -31,7 +31,18 @@ los delitos registrados por el Organismo de Investigación Judicial (OIJ). Tiene
 ```
 .
 ├── docker-compose.yml          # Apache Solr 9 en Docker
+├── app/                        # Aplicación de consultas (Streamlit)
+│   ├── app.py                  # Punto de entrada y página de inicio con el mapa general
+│   ├── pagina_consultas.py     # 11 consultas convencionales
+│   ├── pagina_facets.py        # 5 tipos de facets
+│   ├── pagina_geo.py           # 3 consultas geoespaciales (radio, polígono, polígono con facets)
+│   ├── mapa.py                 # Mapas con Folium y conversión de polígonos a WKT
+│   ├── utilidades.py           # Ejecución de consultas y conversión de resultados
+│   └── requirements.txt
 ├── solr/
+│   ├── cliente_solr.py         # Funciones para comunicarse con Solr por HTTP
+│   ├── crear_schema.py         # Crea los tipos y campos del core "crimen"
+│   ├── indexar.py              # Indexa etl/salida/datos_solr.jsonl en Solr
 │   └── lib/
 │       └── jts-core-1.19.0.jar # Librería JTS: permite consultas con polígonos en Solr
 └── etl/
@@ -41,9 +52,9 @@ los delitos registrados por el Organismo de Investigación Judicial (OIJ). Tiene
     │   ├── censo2011_empleo.xls
     │   └── cantones.geojson
     └── salida/                     # Resultados del ETL
-        ├── anomalias_mensuales.csv
-        ├── datos_limpios.csv       # (no se sube al repo, se genera con el notebook)
-        └── datos_solr.jsonl        # (no se sube al repo, se genera con el notebook)
+        ├── anomalias_mensuales.csv # Resultado de la detección de anomalías por cantón y mes
+        ├── datos_limpios.csv.gz    # Datos limpios e integrados (CSV comprimido, 240 683 registros)
+        └── datos_solr.jsonl.gz     # Documentos listos para indexar en Solr (comprimido)
 ```
 
 ## Etapa 1: ETL con Spark
@@ -80,6 +91,9 @@ junto a él.
 - Los cantones con mayor desempleo tienen casi el doble de criminalidad que los de menor
   desempleo.
 
+Los datos limpios se guardan comprimidos con gzip. Para abrirlos: `gunzip -k etl/salida/datos_limpios.csv.gz`
+(o con cualquier programa de descompresión). Pandas y Spark también los leen directamente comprimidos.
+
 ## Etapa 2: Solr
 
 ### Levantar Solr
@@ -102,3 +116,44 @@ docker compose down    # apaga y elimina el contenedor (los datos indexados se c
 La imagen oficial de Solr no incluye la librería JTS, necesaria para consultar con polígonos
 arbitrarios. Por eso `docker-compose.yml` monta `solr/lib/jts-core-1.19.0.jar` dentro del
 contenedor.
+
+### Crear el schema e indexar los datos
+
+Con Solr encendido, desde la raíz del repositorio. El script usa `etl/salida/datos_solr.jsonl` si
+se generó con el notebook; si no, lee directamente la versión comprimida que viene en el repositorio:
+
+```bash
+python3 solr/crear_schema.py   # define los 39 campos, el tipo espacial y el campo de texto libre
+python3 solr/indexar.py        # carga los 240 683 documentos y verifica la cantidad
+```
+
+Los scripts solo usan la biblioteca estándar de Python, así que no requieren instalar paquetes.
+Ambos se pueden ejecutar de nuevo sin problema: `crear_schema.py` actualiza los campos que ya
+existen, e `indexar.py` borra el índice antes de volver a cargarlo.
+
+### Ejecutar la aplicación
+
+La aplicación está hecha con [Streamlit](https://streamlit.io) y usa [Folium](https://python-visualization.github.io/folium/)
+para los mapas. Se recomienda instalar las dependencias en un entorno virtual. Desde la raíz del
+repositorio:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r app/requirements.txt
+streamlit run app/app.py
+```
+
+Con [uv](https://docs.astral.sh/uv/), lo mismo se hace con `uv venv` y `uv pip install -r app/requirements.txt`.
+
+La aplicación se abre en http://localhost:8501 y tiene cuatro secciones:
+
+| Sección | Contenido |
+|---|---|
+| Inicio y mapa general | Resumen de los delitos indexados y mapa con una muestra aleatoria de puntos |
+| Consultas convencionales | Búsqueda por campo y texto libre, operadores AND, OR y NOT, rangos de fechas y numéricos, filtros combinados, ordenamiento y consultas sobre anomalías e imputación |
+| Consultas con facets | Field facets, range facets, query facets, facets anidados y facets con funciones estadísticas |
+| Consultas geoespaciales | Proximidad a un punto con radio, polígono dibujado en el mapa y polígono combinado con facets |
+
+Todas las consultas, incluido el filtrado por polígono, las ejecuta Solr. Cada resultado muestra la
+consulta exacta que se envió.
