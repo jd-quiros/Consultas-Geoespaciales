@@ -1,5 +1,5 @@
-# Salidas pesadas del ETL: se regeneran ejecutando el notebook.
-# datos_solr.jsonl (~220 MB) supera el límite de 100 MB por archivo de GitHub.
+# Salidas pesadas del ETL sin comprimir (datos_solr.jsonl pesa ~220 MB y supera el límite de
+# 100 MB por archivo de GitHub). En el repositorio se guardan sus versiones comprimidas (.gz).
 etl/salida/datos_solr.jsonl
 etl/salida/datos_limpios.csv
 
